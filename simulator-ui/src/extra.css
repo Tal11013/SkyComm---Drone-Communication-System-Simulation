@@ -1,0 +1,15 @@
+.new-scenario-button {
+  width: 100%;
+  margin: 0 0 18px;
+  border: 1px solid #2563eb;
+  background: #1d4ed8;
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 700;
+}
+
+.empty-hint {
+  color: #7f95ab;
+  font-size: 12px;
+}
