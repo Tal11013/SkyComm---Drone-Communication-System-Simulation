@@ -10,11 +10,17 @@ import {
   TileLayer,
 } from 'react-leaflet';
 import type { LatLngExpression } from 'leaflet';
-import { buildCoverageGrid, coveragePolygon, geoJsonToLeaflet, overlapPolygons, remainingInventory } from './geometry';
+import {
+  buildCoverageGrid,
+  coveragePolygon,
+  geoJsonToLeaflet,
+  overlapPolygons,
+  remainingInventory,
+} from './geometry';
 import { dataAlgorithms } from './dataAlgorithms';
 import { buildLayerPayload, hatzotAdapter } from './hatzotAdapter';
 import { useSimulatorStore } from './store';
-import type { LatLng, LayerKey, ScenarioScore } from './types';
+import type { LatLng, LayerKey, Scenario, ScenarioScore } from './types';
 
 const layerLabels: Record<LayerKey, string> = {
   coverage: 'כיסוי מערכות',
@@ -40,9 +46,32 @@ function ScenarioSidebar() {
     activeScenarioId,
     selectScenario,
     duplicateScenario,
-    renameScenario,
     replaceScenario,
+    addScenario,
   } = useSimulatorStore();
+
+  const createScenario = () => {
+    const name = window.prompt('שם התרחיש החדש', 'תרחיש חדש');
+    if (!name) return;
+    const durationText = window.prompt('משך תרחיש בשניות', '180');
+    const parsedDuration = Number(durationText);
+    const now = new Date().toISOString();
+    const scenario: Scenario = {
+      id: `scenario-${Date.now()}`,
+      name,
+      createdAt: now,
+      updatedAt: now,
+      durationSec: Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 180,
+      defenseUnits: [],
+      threats: [],
+      assets: [],
+      openAreas: [],
+      historicalTracks: [],
+      potentialRoutes: [],
+      notes: 'תרחיש חדש שנוצר דרך ה-UI.',
+    };
+    addScenario(scenario);
+  };
 
   const editScenario = (scenarioId: string) => {
     const scenario = scenarios.find((item) => item.id === scenarioId);
@@ -69,14 +98,22 @@ function ScenarioSidebar() {
         </div>
       </div>
 
+      <button type="button" className="new-scenario-button" onClick={createScenario}>
+        + תרחיש חדש
+      </button>
+
       <div className="sidebar-section-title">היסטוריית תרחישים</div>
       <div className="scenario-list">
         {scenarios.map((scenario) => (
-          <button
-            type="button"
+          <div
             key={scenario.id}
             className={`scenario-card ${activeScenarioId === scenario.id ? 'active' : ''}`}
             onClick={() => selectScenario(scenario.id)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') selectScenario(scenario.id);
+            }}
+            role="button"
+            tabIndex={0}
           >
             <span className="scenario-name">{scenario.name}</span>
             <span className="scenario-meta">עודכן {new Date(scenario.updatedAt).toLocaleString('he-IL')}</span>
@@ -84,7 +121,7 @@ function ScenarioSidebar() {
               <button type="button" onClick={() => duplicateScenario(scenario.id)}>שכפול</button>
               <button type="button" onClick={() => editScenario(scenario.id)}>עריכה</button>
             </span>
-          </button>
+          </div>
         ))}
       </div>
 
@@ -132,6 +169,7 @@ function InventoryDashboard() {
         <span>מתוך {totalInitial} נותרו</span>
       </div>
       <div className="inventory-list">
+        {scenario.defenseUnits.length === 0 && <span className="empty-hint">אין מערכות בתרחיש.</span>}
         {scenario.defenseUnits.map((unit) => {
           const remaining = remainingInventory(unit, simTime);
           const percent = unit.initialInventory ? Math.round((remaining / unit.initialInventory) * 100) : 0;
@@ -368,7 +406,7 @@ export default function App() {
 
   useEffect(() => {
     if (!scenario) return;
-    dataAlgorithms.getSuggestedDeployment(scenario).then(setSuggestedDeployment);
+    void dataAlgorithms.getSuggestedDeployment(scenario).then(setSuggestedDeployment);
     setScore(null);
   }, [scenario?.id]);
 
